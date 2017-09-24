@@ -1,0 +1,6 @@
+[package]
+name = "simon-speck"
+version = "0.1.0"
+authors = ["Chris Allen <cma@bitemyapp.com>"]
+
+[dependencies]
