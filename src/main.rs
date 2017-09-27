@@ -1,3 +1,5 @@
+extern crate byteorder;
+
 // -------------------------- definitions --------------------------
 // n = word size (16, 24, 32, 48, or 64)
 // m = number of key words (must be 4 if n = 16,
@@ -34,8 +36,26 @@
 // y ← tmp
 // end for
 
+// fn encryption(n: u32, t: u8, k: [u16; 32], mut x: u16, mut y: u16) -> (u16, u16) {
+//     for i in 0..(t-1) {
+//         let tmp = x.clone();
+//         // let x = y `xor` (Sx & S8x) `xor` S2x `xor` k[i];
+//         // x = y ^ (x.rotate_left(1) & x.rotate_left(8)) ^ x.rotate_left(2) ^ k[i as usize];
+//         x = y ^ (x.rotate_left(1) & x.rotate_left(8)) ^ x.rotate_left(2) ^ k[i as usize];
+//         y = tmp;
+//     }
+//     (x, y)
+// }
+
+use std::io::Cursor;
+// use std::iter;
+use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
+
 fn key_expansion(j: u8, z: [u64; 5], m: u8, t: u8, mut k: [u16; 32]) -> [u16; 32] {
     for i in m..(t-1) {
+    // for i in (m..(t-1)).rev() {
+
+    // for i in (t-1)..m {
         // let tmp = S-3 k[i-1]
         let mut tmp: u16 = k[(i-1) as usize].rotate_right(3);
         // if (m == 4) { let tmp = tmp `xor` k[i-3]
@@ -52,7 +72,9 @@ fn key_expansion(j: u8, z: [u64; 5], m: u8, t: u8, mut k: [u16; 32]) -> [u16; 32
 }
 
 fn encryption(t: u8, k: [u16; 32], mut x: u16, mut y: u16) -> (u16, u16) {
-    for i in 0..(t-1) {
+    // for i in 0..(t-1) {
+    for i in (0..(t-1)).rev() {
+
         let tmp = x.clone();
         // let x = y `xor` (Sx & S8x) `xor` S2x `xor` k[i];
         x = y ^ (x.rotate_left(1) & x.rotate_left(8)) ^ x.rotate_left(2) ^ k[i as usize];
@@ -61,16 +83,20 @@ fn encryption(t: u8, k: [u16; 32], mut x: u16, mut y: u16) -> (u16, u16) {
     (x, y)
 }
 
-// fn encryption(n: u32, t: u8, k: [u16; 32], mut x: u16, mut y: u16) -> (u16, u16) {
-//     for i in 0..(t-1) {
-//         let tmp = x.clone();
-//         // let x = y `xor` (Sx & S8x) `xor` S2x `xor` k[i];
-//         // x = y ^ (x.rotate_left(1) & x.rotate_left(8)) ^ x.rotate_left(2) ^ k[i as usize];
-//         x = y ^ (x.rotate_left(1) & x.rotate_left(8)) ^ x.rotate_left(2) ^ k[i as usize];
-//         y = tmp;
-//     }
-//     (x, y)
-// }
+fn decryption(t: u8, k: [u16; 32], mut x: u16, mut y: u16) -> (u16, u16) {
+    // for i in 0..(t-1) {
+    for i in (0..(t-1)) {
+
+        // let tmp = x.clone();
+        // // let x = y `xor` (Sx & S8x) `xor` S2x `xor` k[i];
+        // x = y ^ (x.rotate_left(1) & x.rotate_left(8)) ^ x.rotate_left(2) ^ k[i as usize];
+        // y = tmp;
+        let tmp = y.clone();
+        y = x ^ (y.rotate_left(1) & y.rotate_left(8)) ^ y.rotate_left(2) ^ k[i as usize];
+        x = tmp;
+    }
+    (x, y)
+}
 
 fn create_mask(a: u64, b: u64) -> u64 {
     let mut r: u64 = 0;
@@ -134,6 +160,42 @@ fn main() {
     println!("cipher text");
     println!("{:x} {:x}", c_x, c_y);
 
+    let (d_x, d_y) = decryption(t, new_key, c_x, c_y);
+    println!("decrypted text");
+    println!("{:x} {:x}", d_x, d_y);
+
+    if (c_x, c_y) == (0xc69b, 0xe9bb) {
+        println!("YO THIS MIGHT BE CORRECT");
+    }
+    let mut rdr = Cursor::new(vec![2, 5, 3, 0]);
+    println!("{:?}", rdr.read_u16::<BigEndian>().unwrap());
+    println!("{:?}", rdr.read_u16::<BigEndian>().unwrap());
+
+    // let mut rdr = Cursor::new(vec![0xc69b, 0xe9bb]);
+    // let mut rdr = Cursor::new(vec![0x9b, 0xc6, 0xbb, 0xe9]);
+    // println!("{:?}", rdr.read_u16::<LittleEndian>().unwrap());
+    // println!("{:?}", rdr.read_u16::<LittleEndian>().unwrap());
+
+    // let mut rdr = Cursor::new(vec![0xc6, 0x9b, 0xe9, 0xbb]);
+    // println!("{:?}", rdr.read_u16::<BigEndian>().unwrap());
+    // println!("{:?}", rdr.read_u16::<BigEndian>().unwrap());
+
+    // let mut rdr = Cursor::new(vec![0xc6, 0x9b, 0xe9, 0xbb]);
+    // let mut rdr = Cursor::new(vec![0x9b, 0xc6, 0xbb, 0xe9]);
+    // let mut rdr = Cursor::new(vec![0x19, 0xf1, 0xfe, 0x9c]);
+    // println!("{:?}", rdr.read_u16::<BigEndian>().unwrap());
+    // println!("{:?}", rdr.read_u16::<BigEndian>().unwrap());
+
+    // println!("{:?}", vec![0x9b, 0xc6, 0xbb, 0xe9]);
+    // println!("{:?}", vec![0xc69b, 0xe9bb]);
+
+    // println!("{:?}", rdr.read_u8().unwrap());
+    // println!("{:?}", rdr.read_u8().unwrap());
+
+    // println!("{:?}", rdr.read_u16::<LittleEndian>().unwrap());
+
+    // assert_eq!(517, rdr.read_u16::<BigEndian>().unwrap());
+    // assert_eq!(768, rdr.read_u16::<BigEndian>().unwrap());
     // for n in 0..16 {
     //     let (c_x, c_y) = encryption(n, t, new_key, x, y);
     //     println!("plain text");
